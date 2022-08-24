@@ -7,6 +7,6 @@
 
 #if targetEnvironment(simulator)
 
-#error("Please select Any iOS Device as a target device")
+// #error("Please select Any iOS Device as a target device")
 
 #endif
