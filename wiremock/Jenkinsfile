@@ -1,0 +1,75 @@
+#!/usr/bin/env groovy
+
+String cicdModelFilePath = 'deployment/cicd-model.json'
+
+def deployBranchesToDevDefault = false // Edit this to enable/disable auto-DEPLOY2DEV behavior on non-master branches
+def isPullRequestBuild = (env.BRANCH_NAME ==~ /(?i)^pr-\d+$/)
+def isMasterBuild = (env.BRANCH_NAME == 'master')
+def isDevelopBuild = (env.BRANCH_NAME == 'develop')
+
+def deploy2DevDefault = (!isPullRequestBuild && (deployBranchesToDevDefault || isMasterBuild || isDevelopBuild))
+
+properties([parameters([
+        booleanParam(defaultValue: deploy2DevDefault,
+                description: 'Deploy to Development Environment?',
+                name: 'DEPLOY2DEV'),
+
+        booleanParam(defaultValue: false,
+                description: 'Deploy to Integration Environment (applies to master/release only)?',
+                name: 'DEPLOY2INT'),
+
+        booleanParam(defaultValue: false,
+                description: 'Deploy to Production Environment (applies to master only)?',
+                name: 'DEPLOY2PROD')
+])])
+
+env.DEPLOY2DEV = true
+
+// Build Parameters are null the first time a build runs due to Jenkins behavior, so explicitly initialize them
+if (env.DEPLOY2DEV == null) {
+    print "Initializing build parameters to defaults."
+    env.DEPLOY2DEV = (deploy2DevDefault) ? 'true' : 'false'
+    env.DEPLOY2INT = 'false'
+    env.DEPLOY2PROD = 'false'
+}
+
+node('worker') {
+    print "Starting pipeline with options:"
+    print "   DEPLOY2DEV          = '${env.DEPLOY2DEV}'"
+    print "   DEPLOY2INT          = '${env.DEPLOY2INT}'"
+    print "   DEPLOY2PROD         = '${env.DEPLOY2PROD}'"
+    print "   BRANCH_NAME         = '${env.BRANCH_NAME}'"
+
+    def pipeline = new cicd.Pipeline()
+   
+    pipeline.cleanupAndCheckout()
+
+    stage('Build Container Image') {
+         image = pipeline.buildDockerImage(
+                 appName: 'epoc-wiremock',
+                 appVersion: '0.0.1'
+         )
+    }
+
+    stage('Push Image') {
+        imageName = pipeline.pushContainerImage([
+            image : image
+        ])
+        if (env.BRANCH_NAME == 'master') {
+            imageName = pipeline.pushContainerImage(image: image, imageTag: 'latest')
+        }
+    }
+
+    stage("Deploy") {
+        def data = readJSON(file:cicdModelFilePath)
+        data.deployment_payload.ecs_task_definition.containerDefinitions[0].image = imageName
+        writeJSON file: cicdModelFilePath, json: data
+
+        def deploymentToolImage = "docker.artifactory.aws.athenahealth.com/athenahealth/cd_deployment-tool_master_deployment-tool:latest"
+        sh "docker pull $deploymentToolImage"
+
+        pipeline.deploy([
+            cicdModelFile : cicdModelFilePath
+        ])
+    }
+}

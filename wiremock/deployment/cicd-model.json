@@ -1,0 +1,152 @@
+{
+    "cicd_model_schema_version": "1.1.0",
+    "cicd_model_description": "wiremock",
+    "use_iaas_cicd_model": true,
+    "service_metadata": {
+      "description": "wiremock",
+      "homepage": "https://athenaconfluence.athenahealth.com/pages/viewpage.action?pageId=143724250"
+    },
+    "deployment_payload": {
+      "type": "ecs-service",
+      "body_syntax": "ecs-json",
+      "ecs_task_definition": {
+        "family": "wiremock",
+        "containerDefinitions": [
+          {
+            "name": "wiremock",
+            "image": "",
+            "cpu": 1024,
+            "memory": 4096,
+            "portMappings": [
+              {
+                "containerPort": 8080,
+                "protocol": "tcp"
+              }
+            ],
+            "environment":[
+            ],
+            "mountPoints": [
+            ],
+            "volumesFrom":[]
+          }
+        ],
+        "volumes": [
+        ]
+      },
+      "ecs_service_definition": {
+        "cluster": "dev",
+        "serviceName": "wiremock",
+        "loadBalancers": [
+          {
+            "containerName": "wiremock",
+            "containerPort": 8080,
+            "targetGroupArn": "arn:aws:elasticloadbalancing:us-west-2:248758210129:targetgroup/wirem-Wirem-1OM5WV5O0SW7K/3bd0e7bbbecae304"
+          }
+        ]
+      }
+    },
+    "deployment": {
+      "environments": {
+        "development": [
+          {
+            "type": "ecs-cluster",
+            "description": "wiremock dev",
+            "ecs_cluster_specifier": {
+              "region": "us-west-2",
+              "assume_role": "arn:aws:iam::248758210129:role/EcsAccess",
+              "pod": "epocrates",
+              "role": "nonprod",
+              "env": "dev"
+            },
+            "ecs_task_definition_overrides": {
+              "taskRoleArn": "arn:aws:iam::248758210129:role/wiremock-dev-WiremockTaskRoleIamRole-VJGBV20THQK7",
+              "containerDefinitions": [
+                {
+                  "cpu": 50,
+                  "memoryReservation": 200,
+                  "logConfiguration": {
+                    "logDriver": "gelf",
+                    "options": {
+                      "gelf-address": "tcp://graylog-ingest.us-west-2.dev.epocrates.aws.athenahealth.com:12202"
+                    }
+                  },
+                  "environment": [
+                  ]
+                }
+              ]
+            },
+            "ecs_service_definition_overrides": {
+              "cluster": "dev",
+              "loadBalancers": [
+                {
+                  "containerName": "wiremock",
+                  "containerPort": 8080,
+                  "targetGroupArn": "arn:aws:elasticloadbalancing:us-west-2:248758210129:targetgroup/wirem-Wirem-1OM5WV5O0SW7K/3bd0e7bbbecae304"
+                }
+              ],
+              "serviceName": "wiremock",
+              "desiredCount": 1
+            },
+            "post_deploy_tasks": []
+          }
+        ],
+        "integration": [
+          {
+            "type": "ecs-cluster",
+            "description": "wiremock integration",
+            "ecs_cluster_specifier": {
+              "region": "us-west-2",
+              "assume_role": "arn:aws:iam::248758210129:role/EcsAccess",
+              "pod": "epocrates",
+              "role": "nonprod",
+              "env": "integration"
+            },
+            "ecs_task_definition_overrides": {
+              "taskRoleArn": "arn:aws:iam::248758210129:role/wiremock-integration-WiremockTaskRoleIamRole-YJQX31GOH36B",
+              "containerDefinitions": [
+                {
+                  "cpu": 50,
+                  "memoryReservation": 200,
+                  "logConfiguration": {
+                    "logDriver": "gelf",
+                    "options": {
+                      "gelf-address": "tcp://graylog-ingest.us-west-2.dev.epocrates.aws.athenahealth.com:12202"
+                    }
+                  },
+                  "environment": [
+                  ]
+                }
+              ]
+            },
+            "ecs_service_definition_overrides": {
+              "cluster": "integration",
+              "loadBalancers": [
+                {
+                  "containerName": "wiremock",
+                  "containerPort": 8080,
+                  "targetGroupArn": "arn:aws:elasticloadbalancing:us-west-2:248758210129:targetgroup/wirem-Wirem-1FHAK4QCXNQ55/5b785b433e10d260"
+                }
+              ],
+              "serviceName": "wiremock",
+              "desiredCount": 1
+            },
+            "post_deploy_tasks": []
+          }
+        ]
+      },
+      "git_branch_flows": {
+        ".*": [
+          "development"
+        ],
+        "release/.*": [
+          "development",
+          "integration"
+        ],
+        "master": [
+          "development",
+          "integration",
+          "production"
+        ]
+      }
+    }
+  }

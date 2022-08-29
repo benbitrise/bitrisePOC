@@ -1,0 +1,6 @@
+{
+  "error": {
+    "code": "invalidParams",
+    "message": "Your request has invalid parameters"
+  }
+}
